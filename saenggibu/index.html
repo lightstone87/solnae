@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="referrer" content="no-referrer">
+    <meta name="robots" content="noindex, nofollow">
+    <title>전주솔내고 학생부 조회 시스템</title>
+    <link rel="icon" type="image/png" href="logo.png">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+    <style>
+      /* --- 레이아웃 기초 설정 --- */
+      body { font-family: 'Noto Sans KR', 'Apple SD Gothic Neo', 'Malgun Gothic', sans-serif; background-color: #f4f6f8; margin: 0; padding: 20px; color: #333; height: 100vh; box-sizing: border-box; overflow: hidden; }
+      [hidden] { display: none !important; }
+      .container { width: 99%; height: 100%; margin: 0 auto; display: flex; flex-direction: column; }
+
+      /* --- 로그인 화면 (학교 배경) --- */
+      /* 배경 그림은 잘리지 않게 화면 안에 통째로 넣고(contain), 남는 가장자리는 같은 그림을 흐리게 깔아 채웁니다. */
+      .login-wrapper { display: flex; justify-content: center; align-items: center; position: fixed; inset: 0; z-index: 2000; padding: 16px; box-sizing: border-box;
+        overflow: hidden; isolation: isolate; background-color: #dfe8df; }
+      .login-wrapper::before { content: ''; position: absolute; inset: -40px; z-index: -2;
+        background: url('bg.png') center / cover no-repeat; filter: blur(26px) saturate(1.05); opacity: .85; }
+      .login-wrapper::after { content: ''; position: absolute; inset: 0; z-index: -1;
+        background-image: linear-gradient(rgba(16, 48, 30, 0.14), rgba(16, 48, 30, 0.14)), url('bg.png');
+        background-size: 100% 100%, contain; background-position: center, center; background-repeat: no-repeat; }
+      /* 세로로 긴 화면(휴대폰 등)에서는 그림이 너무 작아지므로 화면을 채웁니다. */
+      @media (max-aspect-ratio: 5/4) {
+        .login-wrapper::after { background-size: 100% 100%, cover; background-position: center, center top; }
+      }
+      .login-box { position: relative; background: rgba(255, 255, 255, 0.95); padding: 36px 40px 34px; border-radius: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.22); width: 400px; max-width: 100%; box-sizing: border-box; text-align: center; backdrop-filter: blur(5px); }
+      .login-logo { width: 160px; height: 160px; margin: 0 auto 16px; display: block; }
+      .login-box h2 { margin: 0 0 26px; color: #1f3d2b; font-size: 1.7rem; word-break: keep-all; font-weight: 800; line-height: 1.25; }
+      .login-box h2 .login-school { display: block; font-size: 15px; font-weight: 700; color: #00793a; letter-spacing: .06em; margin-bottom: 4px; }
+      .login-input { width: 100%; padding: 14px; margin-bottom: 12px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 16px; transition: border-color 0.3s; font-family: inherit; }
+      .login-input:focus { border-color: #4a90e2; outline: none; box-shadow: 0 0 5px rgba(74, 144, 226, 0.3); }
+      .btn-primary { background-color: #4a90e2; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: background 0.2s, transform 0.1s; font-family: inherit; }
+      .login-box .btn-primary { width: 100%; padding: 14px; margin-top: 10px; }
+      .btn-primary:hover:not(:disabled) { background-color: #357abd; transform: translateY(-2px); }
+      .btn-primary:disabled { opacity: .65; cursor: default; }
+      .error-msg { color: #e74c3c; margin-bottom: 15px; font-size: 14px; font-weight: 500; word-break: keep-all; }
+      .login-foot { margin: 18px 0 0; font-size: 12px; color: #8a978f; word-break: keep-all; }
+      :focus-visible { outline: 2px solid #4a90e2; outline-offset: 2px; }
+
+      /* --- 메인 화면 --- */
+      .search-header { background: white; padding: 15px 30px; border-radius: 12px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); margin-bottom: 15px; flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 15px; }
+      .header-brand { display: flex; align-items: center; gap: 12px; }
+      .header-logo { width: 46px; height: 46px; flex: 0 0 auto; }
+      .header-title { font-size: 1.6rem; font-weight: 800; color: #2c3e50; margin: 0; line-height: 1.1; word-break: keep-all; }
+      .header-title small { display: block; font-size: 12px; font-weight: 500; color: #7a8a80; margin-bottom: 3px; }
+      .search-controls, .header-actions { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; align-items: center; }
+      .search-controls { gap: 36px; }
+      .header-sep { width: 1px; height: 26px; background: #e1e6ea; margin: 0 4px; }
+      .user-chip { font-size: 13px; color: #2c3e50; background: #eef4ef; border: 1px solid #d6e4da; border-radius: 999px; padding: 6px 12px; white-space: nowrap; }
+      .user-chip b { color: #00793a; }
+      /* PC 화면: [로고·제목] ……… [학년·학급·학생·조회] ……… [엑셀·인쇄 | 로그아웃·계정] */
+      @media (min-width: 768px) {
+        .search-header { display: grid; align-items: center; gap: 12px 28px; padding: 14px 22px;
+          grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "brand act" "ctrl ctrl"; }
+        .header-brand { grid-area: brand; justify-self: start; }
+        .search-controls { grid-area: ctrl; justify-self: center; flex-wrap: nowrap; }
+        .header-actions { grid-area: act; justify-self: end; flex-wrap: nowrap; }
+        .header-title { font-size: 2.0rem; }
+      }
+      /* 한 줄에 다 들어가는 화면: 조회 묶음을 가운데에 */
+      @media (min-width: 1420px) {
+        .search-header { grid-template-columns: auto 1fr auto; grid-template-areas: "brand ctrl act"; }
+      }
+      /* 넓은 화면: 머리줄의 정확한 한가운데에 */
+      @media (min-width: 1640px) {
+        .search-header { grid-template-columns: 1fr auto 1fr; }
+      }
+      select { padding: 8px 12px; height: 40px; border: 1px solid #d5dbe0; border-radius: 6px; font-size: 16px; min-width: 104px; font-family: inherit; background: #fff; }
+      #selId { min-width: 150px; }
+
+      .btn-search { padding: 8px 25px; height: 40px; }
+      .btn-excel { background-color: #27ae60; color: white; padding: 8px 15px; border: none; border-radius: 5px; height: 40px; font-weight: bold; cursor: pointer; transition: 0.2s; font-family: inherit; }
+      .btn-excel:hover { background-color: #219150; }
+      .btn-print { background-color: #95a5a6; color: white; padding: 8px 15px; border: none; border-radius: 5px; height: 40px; font-weight: bold; cursor: pointer; transition: 0.2s; font-family: inherit; }
+      .btn-print:hover { background-color: #7f8c8d; }
+      .btn-logout { padding: 8px 15px; background-color: #e74c3c; color:white; border:none; border-radius:5px; height: 40px; cursor:pointer; font-weight: bold; transition: 0.2s; font-family: inherit; }
+      .btn-logout:hover { background-color: #c0392b; }
+
+      /* 테이블 컨테이너 */
+      .table-wrapper { width: 100%; flex-grow: 1; background: white; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); overflow: auto; position: relative; border: 1px solid #ddd; }
+
+      table { border-collapse: separate; border-spacing: 0; width: max-content; min-width: 100%; }
+      th, td { box-sizing: border-box; padding: 14px 15px; text-align: left; border-bottom: 1px solid #eee; border-right: 1px solid #eee; vertical-align: top; }
+      th:last-child, td:last-child { border-right: none; }
+
+      /* --- 세로 고정 (Sticky Header) --- */
+      thead th { position: sticky; background-color: #f8f9fa; color: #555; font-weight: 700; text-align: center; z-index: 10; box-shadow: inset 0 -1px 0 #ddd, -1px 0 0 #eee; }
+      thead tr:nth-child(1) th { top: 0; z-index: 20; border-bottom: 1px solid #ddd; padding-top: 15px; padding-bottom: 15px; }
+      thead tr:nth-child(2) th { top: 48px; z-index: 15; border-bottom: 2px solid #aaa; }
+
+      /* --- 가로 고정 (Sticky Columns) --- */
+      .col-c1 { min-width: 70px; max-width: 70px; position: sticky; left: 0; background-color: #fff; z-index: 5; text-align: center; }
+      .col-c2 { min-width: 70px; max-width: 70px; position: sticky; left: 70px; background-color: #fff; z-index: 5; text-align: center; }
+      .col-c3 { min-width: 70px; max-width: 70px; position: sticky; left: 140px; background-color: #fff; z-index: 5; text-align: center; }
+      .col-c4 { min-width: 90px; max-width: 90px; position: sticky; left: 210px; background-color: #fff; z-index: 5; text-align: center; }
+      .col-c5 { min-width: 100px; max-width: 100px; position: sticky; left: 300px; background-color: #fff; z-index: 5; text-align: center; font-weight: bold; border-right: 2px solid #a0aec0 !important; box-shadow: 3px 0 5px -2px rgba(0,0,0,0.1); }
+      .th-basic-info { position: sticky; left: 0; z-index: 30 !important; background-color: #edf2f7 !important; border-right: 2px solid #a0aec0 !important; box-shadow: 3px 0 5px -2px rgba(0,0,0,0.1); }
+      thead tr:nth-child(2) .col-c1, thead tr:nth-child(2) .col-c2, thead tr:nth-child(2) .col-c3,
+      thead tr:nth-child(2) .col-c4, thead tr:nth-child(2) .col-c5 { z-index: 25 !important; background-color: #f8f9fa !important; }
+
+      /* 일반 데이터 열 */
+      .col-content { min-width: 600px; max-width: 800px; white-space: pre-wrap; line-height: 1.6; font-size: 15px; }
+      .col-byte { min-width: 70px; text-align: center; font-weight: bold; color: #4a90e2; }
+      .is-empty { color: #b0b8c1; }
+
+      .group-start { border-left: 3px solid #d1d5db !important; }
+      .bg-auto { background-color: #fff; }
+      .bg-career { background-color: #fcfcfc; }
+      .bg-indiv { background-color: #fff; }
+      thead th.bg-auto { background-color: #fff; }
+      thead th.bg-career { background-color: #f4f8fb; }
+      thead th.bg-indiv { background-color: #fff; }
+
+      .loader { text-align: center; padding: 40px; font-weight: bold; color: #666; font-size: 1.2rem; margin-top: 50px; }
+      .no-result { text-align: center; padding: 50px; color: #888; font-size: 1.1rem; margin-top: 50px; }
+      .hint { text-align: center; color: #7a8a80; padding: 60px 20px; font-size: 1.05rem; word-break: keep-all; line-height: 1.6; }
+      .hint small { display: block; margin-top: 6px; font-size: 14px; color: #9aa7a0; }
+
+      .table-wrapper::-webkit-scrollbar { width: 14px; height: 16px; }
+      .table-wrapper::-webkit-scrollbar-track { background: #f1f1f1; border-bottom-left-radius: 8px; border-bottom-right-radius: 8px; }
+      .table-wrapper::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 8px; border: 3px solid #f1f1f1; }
+      .table-wrapper::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+
+      .print-title { display: none; }
+
+      /* --- 휴대폰: 이름 열만 고정하고 칸을 좁혀서 내용이 보이게 --- */
+      @media (max-width: 767px) {
+        body { padding: 10px; }
+        .search-header { padding: 14px 14px; gap: 10px; }
+        .header-sep { display: none; }
+        .search-controls { gap: 12px 10px; }
+        select, #selId { min-width: 0; flex: 1 1 28%; }
+        th, td { padding: 10px 6px; font-size: 14px; }
+        thead th { white-space: nowrap; }
+        .col-c1, .col-c2, .col-c3 { min-width: 44px; max-width: 44px; }
+        .col-c4 { min-width: 62px; max-width: 62px; }
+        .col-c5 { min-width: 72px; max-width: 72px; left: 0; }
+        tbody .col-c1, tbody .col-c2, tbody .col-c3, tbody .col-c4 { position: static; }
+        thead tr:nth-child(2) .col-c1, thead tr:nth-child(2) .col-c2, thead tr:nth-child(2) .col-c3, thead tr:nth-child(2) .col-c4 { left: auto; }
+        .th-basic-info { left: auto; }
+        .col-content { min-width: 300px; max-width: 300px; font-size: 14px; }
+        .col-byte { min-width: 52px; }
+      }
+
+      /* --- 인쇄: A4 가로, 칸 너비 고정 --- */
+      @media print {
+        @page { size: A4 landscape; margin: 10mm; }
+        html, body { padding: 0; margin: 0; background: #fff; overflow: visible !important; height: auto !important; }
+        .container { display: block; overflow: visible; height: auto; width: 100%; }
+        .search-header, .login-wrapper, .hint, .loader { display: none !important; }
+        .print-title { display: flex; justify-content: space-between; align-items: baseline; margin: 0 0 3mm; font-size: 12pt; font-weight: 700; color: #000; }
+        .print-title span { font-size: 9pt; font-weight: 400; }
+        .table-wrapper { overflow: visible !important; border: none !important; box-shadow: none !important; height: auto !important; border-radius: 0; }
+        table { width: 100% !important; min-width: 0 !important; border-collapse: collapse !important; table-layout: fixed !important; }
+        col, th, td { min-width: 0 !important; max-width: none !important; }
+        col.col-c1, col.col-c2, col.col-c3 { width: 3.6%; }
+        col.col-c4 { width: 5.8%; }
+        col.col-c5 { width: 6.6%; }
+        col.col-content { width: 21.4%; }
+        col.col-byte { width: 4.2%; }
+        thead { display: table-header-group; }
+        tr { break-inside: avoid; }
+        th, td { border: 1px solid #000 !important; padding: 4px 5px !important; font-size: 9pt !important; line-height: 1.45 !important; white-space: pre-wrap !important; word-break: normal !important; overflow-wrap: anywhere !important; position: static !important; box-shadow: none !important; left: auto !important; color: #000 !important; }
+        thead th { font-size: 8.5pt !important; }
+        .col-byte { color: #000 !important; }
+        .group-start { border-left: 2px solid #000 !important; }
+      }
+    </style>
+  </head>
+  <body>
+
+    <div id="loginView" class="login-wrapper">
+      <form class="login-box" id="loginForm" autocomplete="on">
+        <img src="logo.png" alt="전주솔내고등학교 교표" class="login-logo" width="160" height="160">
+        <h2><span class="login-school">전주솔내고등학교</span>학생부 조회 시스템</h2>
+        <div id="loginError" class="error-msg" role="alert" hidden></div>
+        <input type="text" id="userId" class="login-input" placeholder="아이디" autocomplete="username" autocapitalize="off" spellcheck="false" required>
+        <input type="password" id="userPw" class="login-input" placeholder="비밀번호" autocomplete="current-password" required>
+        <button class="btn-primary" id="loginBtn" type="submit">로그인</button>
+        <p class="login-foot">사용 후에는 꼭 로그아웃해 주세요.<br>60분 동안 사용하지 않으면 자동으로 로그아웃됩니다.</p>
+      </form>
+    </div>
+
+    <div id="mainView" class="container" hidden>
+      <div class="search-header">
+        <div class="header-brand">
+          <img src="logo.png" alt="" class="header-logo" width="46" height="46">
+          <h1 class="header-title"><small>전주솔내고등학교</small>기재내용 조회</h1>
+        </div>
+        <div class="search-controls">
+          <select id="selGrade" aria-label="학년"><option value="">학년</option></select>
+          <select id="selClass" aria-label="학급"><option value="">학급</option></select>
+          <select id="selId" aria-label="학생"><option value="">학생 선택</option></select>
+          <button class="btn-primary btn-search" id="searchBtn" type="button">조회</button>
+        </div>
+        <div class="header-actions">
+          <button class="btn-excel" id="excelBtn" type="button">엑셀 다운로드</button>
+          <button class="btn-print" id="printBtn" type="button">인쇄</button>
+          <span class="header-sep" aria-hidden="true"></span>
+          <button class="btn-logout" id="logoutBtn" type="button">로그아웃</button>
+          <span class="user-chip" id="userChip"></span>
+        </div>
+      </div>
+
+      <div id="hint" class="hint"></div>
+      <div id="loader" class="loader" hidden>데이터를 조회 중입니다...</div>
+
+      <div id="resultArea" class="table-wrapper" hidden>
+        <div class="print-title" id="printTitle"></div>
+        <table id="resultTable">
+          <colgroup>
+            <col class="col-c1"><col class="col-c2"><col class="col-c3"><col class="col-c4"><col class="col-c5">
+            <col class="col-content"><col class="col-byte">
+            <col class="col-content"><col class="col-byte">
+            <col class="col-content"><col class="col-byte">
+          </colgroup>
+          <thead>
+            <tr>
+              <th colspan="5" class="th-basic-info">기본 정보</th>
+              <th colspan="2" class="group-start bg-auto" style="color:#2b6cb0;">자율활동 특기사항</th>
+              <th colspan="2" class="group-start bg-career" style="color:#2c7a7b;">진로활동 특기사항</th>
+              <th colspan="2" class="group-start bg-indiv" style="color:#805ad5;">개인별 세부능력 및 특기사항</th>
+            </tr>
+            <tr>
+              <th class="col-c1">학년</th>
+              <th class="col-c2">반</th>
+              <th class="col-c3">번호</th>
+              <th class="col-c4">학번</th>
+              <th class="col-c5">이름</th>
+              <th class="group-start bg-auto col-content" style="text-align:center;">내용</th>
+              <th class="bg-auto col-byte">Byte</th>
+              <th class="group-start bg-career col-content" style="text-align:center;">내용</th>
+              <th class="bg-career col-byte">Byte</th>
+              <th class="group-start bg-indiv col-content" style="text-align:center;">내용</th>
+              <th class="bg-indiv col-byte">Byte</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+        <div id="noResult" class="no-result" hidden>조회된 결과가 없습니다.</div>
+      </div>
+    </div>
+
+    <script>
+    (function () {
+      'use strict';
+
+      // ============================================================
+      // ★ 설정: 앱스 스크립트 웹앱 주소(…/exec)를 따옴표 안에 넣으세요.
+      //   (배포 > 배포 관리에서 복사. 주소에 /u/1/ 같은 부분이 있으면 지워도 됩니다)
+      // ============================================================
+      var API_URL = 'https://script.google.com/macros/s/AKfycbz8d2JqI8xeYCH7E4VYazhOxNAC1_I6tujbedN83IPowtIazgELTk1oWUZeUFnyGxoy/exec';
+
+      var SESSION_KEY = 'saenggibu.session';   // 이 탭에서만 유지(탭을 닫으면 지워짐)
+      var HINT = '학년·학급·학생을 골라 [조회]를 누르세요.<br><small>아무것도 고르지 않고 [조회]를 누르면 조회할 수 있는 학생 전체가 나옵니다.</small>';
+      var fullData = [];
+      var lastRows = [];
+
+      function $(id) { return document.getElementById(id); }
+      function esc(s) {
+        return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+          return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+        });
+      }
+      function apiUrl() {
+        var s = String(API_URL || '').trim().replace(/\/macros\/u\/\d+\//, '/macros/');
+        if (/^AKfy[\w-]+$/.test(s)) s = 'https://script.google.com/macros/s/' + s + '/exec';   // 배포 ID만 넣어도 됨
+        return /^https:\/\/script\.google\.com\/(?:a\/macros\/[\w.-]+|macros)\/s\/[\w-]+\/exec$/.test(s) ? s : '';
+      }
+
+      // ---------- 세션(이 탭에만 저장) ----------
+      function getSession() {
+        try { var v = JSON.parse(sessionStorage.getItem(SESSION_KEY) || 'null'); return v && v.token ? v : null; } catch (e) { return null; }
+      }
+      function setSession(v) { try { sessionStorage.setItem(SESSION_KEY, JSON.stringify(v)); } catch (e) {} }
+      function clearSession() { try { sessionStorage.removeItem(SESSION_KEY); } catch (e) {} }
+
+      // ---------- 서버 호출: 본문(POST)으로만 보내고, 구글 로그인 정보(쿠키)는 보내지 않음 ----------
+      function SessionError(msg) { this.message = msg; this.session = true; }
+      function api(action, payload) {
+        var url = apiUrl();
+        if (!url) return Promise.reject(new Error('관리자 설정이 필요합니다: index.html의 API_URL에 앱스 스크립트 웹앱 주소를 넣어 주세요.'));
+        var body = { action: action };
+        Object.keys(payload || {}).forEach(function (k) { body[k] = payload[k]; });
+        var s = getSession();
+        if (s && action !== 'login') body.token = s.token;
+        return fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(body),
+          credentials: 'omit', redirect: 'follow', cache: 'no-store'
+        }).then(function (res) {
+          if (!res.ok) throw new Error('서버가 응답하지 않습니다 (HTTP ' + res.status + ').');
+          return res.json().catch(function () { throw new Error('서버 응답을 읽지 못했습니다. 웹앱 배포 설정(액세스: 모든 사용자)을 확인해 주세요.'); });
+        }, function () {
+          throw new Error('서버에 연결하지 못했습니다. 인터넷 연결을 확인해 주세요.');
+        }).then(function (j) {
+          if (j && j.code === 'SESSION') throw new SessionError(j.error);
+          if (!j || !j.ok) throw new Error((j && j.error) || '요청을 처리하지 못했습니다.');
+          return j;
+        });
+      }
+
+      // ---------- 화면 전환 ----------
+      function showLogin(message) {
+        $('mainView').hidden = true;
+        $('loginView').hidden = false;
+        $('userPw').value = '';
+        showError(message || '');
+        setTimeout(function () { ($('userId').value ? $('userPw') : $('userId')).focus(); }, 0);
+      }
+      function showMain(user) {
+        $('loginView').hidden = true;
+        $('mainView').hidden = false;
+        $('userChip').innerHTML = esc(user.id) + ' · <b>' + esc(user.scope) + '</b> 조회';
+      }
+      function showError(msg) {
+        var el = $('loginError');
+        el.textContent = msg;
+        el.hidden = !msg;
+      }
+      function resetResults() {
+        lastRows = [];
+        $('tableBody').innerHTML = '';
+        $('resultArea').hidden = true;
+        $('loader').hidden = true;
+        $('hint').hidden = false;
+      }
+      function onSessionLost(e) {
+        clearSession();
+        resetResults();
+        showLogin(e && e.message ? e.message : '다시 로그인해 주세요.');
+      }
+
+      // ---------- 로그인 ----------
+      $('loginForm').addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        var id = $('userId').value.trim();
+        var pw = $('userPw').value;
+        if (!id || !pw) { showError('아이디와 비밀번호를 입력해 주세요.'); return; }
+        showError('');
+        var btn = $('loginBtn');
+        btn.disabled = true; btn.textContent = '확인 중…';
+        api('login', { id: id, pw: pw }).then(function (r) {
+          setSession({ token: r.token, user: r.user });
+          $('userPw').value = '';
+          resetResults();
+          showMain(r.user);
+          initDropdowns(r.students);
+        }).catch(function (e) {
+          $('userPw').value = '';
+          showError(e.message);
+          $('userPw').focus();
+        }).then(function () {
+          btn.disabled = false; btn.textContent = '로그인';
+        });
+      });
+
+      $('logoutBtn').addEventListener('click', function () {
+        var s = getSession();
+        if (s) api('logout').catch(function () {});
+        clearSession();
+        fullData = [];
+        resetResults();
+        ['selGrade', 'selClass', 'selId'].forEach(function (k) { $(k).length = 1; });
+        showLogin('');
+      });
+
+      // ---------- 드롭다운 (기존 방식 그대로) ----------
+      function initDropdowns(data) {
+        fullData = data || [];
+        var grades = Array.from(new Set(fullData.map(function (d) { return d.grade; }))).sort(function (a, b) { return a - b; });
+        var selGrade = $('selGrade');
+        selGrade.length = 1; $('selClass').length = 1; $('selId').length = 1;
+        grades.forEach(function (g) { selGrade.add(new Option(g + '학년', g)); });
+        if (grades.length === 1) { selGrade.value = String(grades[0]); updateClasses(); }
+      }
+      function updateClasses() {
+        var grade = $('selGrade').value;
+        var selClass = $('selClass');
+        selClass.length = 1; $('selId').length = 1;
+        if (!grade) return;
+        var classes = Array.from(new Set(fullData.filter(function (d) { return String(d.grade) === grade; }).map(function (d) { return d.cls; })))
+          .sort(function (a, b) { return a - b; });
+        classes.forEach(function (c) { selClass.add(new Option(c + '반', c)); });
+        if (classes.length === 1) { selClass.value = String(classes[0]); updateIds(); }
+      }
+      function updateIds() {
+        var grade = $('selGrade').value, cls = $('selClass').value;
+        var selId = $('selId');
+        selId.length = 1;
+        if (!grade || !cls) return;
+        fullData.filter(function (d) { return String(d.grade) === grade && String(d.cls) === cls; })
+          .sort(function (a, b) { return a.num - b.num; })
+          .forEach(function (s) { selId.add(new Option(s.num + '번 ' + s.name, s.id)); });
+      }
+      $('selGrade').addEventListener('change', updateClasses);
+      $('selClass').addEventListener('change', updateIds);
+
+      // ---------- 조회 ----------
+      $('searchBtn').addEventListener('click', function () {
+        // 아무것도 고르지 않으면 → 이 계정이 볼 수 있는 학생 전체 (권한 범위는 서버가 정함)
+        var grade = $('selGrade').value, cls = grade ? $('selClass').value : '', id = cls ? $('selId').value : '';
+        var s0 = getSession(), scopeLabel = (s0 && s0.user && s0.user.scope) || '';
+        var label = !grade ? (scopeLabel === '전체' || !scopeLabel ? '전체 학생' : scopeLabel)
+          : grade + '학년 ' + (cls ? cls + '반' : '전체') + (id ? ' · ' + $('selId').selectedOptions[0].textContent : '');
+        $('hint').hidden = true;
+        $('resultArea').hidden = true;
+        $('loader').textContent = !grade && scopeLabel === '전체' ? '전체 학생 자료를 불러오는 중입니다… (몇 초 걸릴 수 있습니다)' : '데이터를 조회 중입니다...';
+        $('loader').hidden = false;
+        var btn = this; btn.disabled = true;
+        api('search', { grade: grade, cls: cls, id: id }).then(function (r) {
+          var s = getSession();
+          $('printTitle').innerHTML = '전주솔내고등학교 학생부 기재내용 · ' + esc(label) + ' (' + esc((r.data || []).length) + '명)' +
+            '<span>' + esc(new Date().toLocaleDateString('ko-KR')) + ' 출력' + (s && s.user ? ' · ' + esc(s.user.id) : '') + '</span>';
+          renderTable(r.data);
+        }).catch(function (e) {
+          $('loader').hidden = true;
+          if (e.session) { onSessionLost(e); return; }
+          if (lastRows.length) $('resultArea').hidden = false; else $('hint').hidden = false;   // 직전 결과는 그대로 둠
+          alert(e.message);
+        }).then(function () { btn.disabled = false; });
+      });
+
+      function cellText(t) { return t ? esc(t) : '<span class="is-empty">-</span>'; }
+      function renderTable(rows) {
+        lastRows = rows || [];
+        $('loader').hidden = true;
+        $('resultArea').hidden = false;
+        var tbody = $('tableBody');
+        if (!lastRows.length) {
+          tbody.innerHTML = '';
+          $('resultTable').hidden = true;
+          $('noResult').hidden = false;
+          return;
+        }
+        $('noResult').hidden = true;
+        $('resultTable').hidden = false;
+        tbody.innerHTML = lastRows.map(function (row) {
+          return '<tr>' +
+            '<td class="col-c1">' + esc(row.grade) + '</td>' +
+            '<td class="col-c2">' + esc(row.cls) + '</td>' +
+            '<td class="col-c3">' + esc(row.num) + '</td>' +
+            '<td class="col-c4">' + esc(row.id) + '</td>' +
+            '<td class="col-c5">' + esc(row.name) + '</td>' +
+            '<td class="group-start bg-auto col-content">' + cellText(row.auto.txt) + '</td>' +
+            '<td class="bg-auto col-byte">' + esc(row.auto.byte || 0) + '</td>' +
+            '<td class="group-start bg-career col-content">' + cellText(row.career.txt) + '</td>' +
+            '<td class="bg-career col-byte">' + esc(row.career.byte || 0) + '</td>' +
+            '<td class="group-start bg-indiv col-content">' + cellText(row.indiv.txt) + '</td>' +
+            '<td class="bg-indiv col-byte">' + esc(row.indiv.byte || 0) + '</td>' +
+            '</tr>';
+        }).join('');
+        $('resultArea').scrollTop = 0; $('resultArea').scrollLeft = 0;
+      }
+
+      // ---------- 엑셀·인쇄 (기존 기능 그대로) ----------
+      $('excelBtn').addEventListener('click', function () {
+        if (!lastRows.length) { alert('다운로드할 데이터가 없습니다. 먼저 조회를 진행해 주세요.'); return; }
+        if (!window.XLSX) { alert('엑셀 기능을 불러오지 못했습니다. 잠시 뒤 다시 시도해 주세요.'); return; }
+        var wb = XLSX.utils.table_to_book($('resultTable'), { sheet: '학생부_기재내용' });
+        XLSX.writeFile(wb, '전주솔내고_학생부_기재내용.xlsx');
+      });
+      $('printBtn').addEventListener('click', function () {
+        if (!lastRows.length) { alert('인쇄할 데이터가 없습니다. 먼저 조회를 진행해 주세요.'); return; }
+        window.print();
+      });
+
+      // ---------- 시작: 이 탭에 로그인 기록이 있으면 이어서 사용 ----------
+      $('hint').innerHTML = HINT;
+      if (!apiUrl()) { showLogin('관리자 설정이 필요합니다: index.html의 API_URL에 앱스 스크립트 웹앱 주소를 넣어 주세요.'); return; }
+      var s = getSession();
+      if (!s) { showLogin(''); return; }
+      showMain(s.user || { id: '', scope: '' });
+      $('hint').textContent = '로그인 정보를 확인하는 중입니다…';
+      api('students').then(function (r) {
+        setSession({ token: s.token, user: r.user });
+        showMain(r.user);
+        $('hint').innerHTML = HINT;
+        initDropdowns(r.students);
+      }).catch(function (e) {
+        $('hint').innerHTML = HINT;
+        if (e.session) onSessionLost(e); else { clearSession(); showLogin(e.message); }
+      });
+    })();
+    </script>
+  </body>
+</html>
