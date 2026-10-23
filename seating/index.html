@@ -1,0 +1,467 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>시험 좌석 배치 프로그램</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+<script src="seating-core.js"></script>
+<script>
+/* ===== 설정 : 앱스 스크립트 웹앱 URL(배포 후 붙여넣기) ===== */
+var API_URL = 'https://script.google.com/macros/s/AKfycbyFlIqglLOqjDTH23ImRf3vVn6_28TcOeqHGRq7ydHfXetGDs-pCCX6IR-IreTH9zjkrA/exec';
+var DATA_TITLE = '2026학년도 고사 자리배치도_Data';
+</script>
+<style>
+:root{--navy:#1F4E8C;--navy-d:#163A69;--ink:#1A1F27;--mute:#5B6572;--line:#D9DEE4;--line2:#C9D1DA;--bg:#EEF1F4;--card:#FFFFFF;--soft:#F3F6FA}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:"Noto Sans KR",system-ui,sans-serif;font-size:14px}
+a{color:var(--navy)}a:hover{color:var(--navy-d)}
+select,button,input{font-family:inherit;font-size:14px}
+select{height:38px;border:1px solid var(--line2);border-radius:6px;padding:0 10px;background:#fff;width:auto}
+button{cursor:pointer}
+.hdr{background:#fff;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:40px;padding:0 32px;height:64px}
+.hdr .brand{display:flex;align-items:center;gap:16px}
+.hdr .brand img{height:44px;width:auto}
+.hdr .brand .ttl{font-size:19px;font-weight:700;color:var(--navy);white-space:nowrap}
+.hdr nav{display:flex;gap:4px;height:64px;align-items:stretch}
+.hdr nav a{display:flex;align-items:center;padding:0 18px;color:#3C4653;text-decoration:none;font-weight:500;border-bottom:3px solid transparent}
+.hdr nav a.on{color:var(--navy);font-weight:700;border-bottom-color:var(--navy)}
+.hdr .src{margin-left:auto;font-size:12px;color:var(--mute)}
+.hdr .src a{margin-left:8px}
+.wrap{max-width:1216px;width:100%;margin:0 auto;padding:20px 32px 40px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+.row{display:flex;align-items:flex-end;gap:14px;flex-wrap:wrap}
+.fld{display:flex;flex-direction:column;gap:4px}
+.fld label{font-size:12px;color:var(--mute)}
+.btn{height:38px;padding:0 22px;background:var(--navy);color:#fff;border:0;border-radius:6px;font-weight:700}
+.btn:disabled{background:#9AA7B8;cursor:not-allowed}
+.btn.big{height:52px;font-size:16px;width:100%}
+.btn.lg{height:46px;font-size:15px;width:100%}
+.chip{display:flex;align-items:center;gap:10px;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:8px 12px;font-size:13px}
+.chip.warn{background:#FFF8E6;border-color:#E8C97A;color:#7A5300}
+.chip b.caps{letter-spacing:.08em}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin:16px 0}
+.tabs button{height:34px;padding:0 12px;border-radius:6px;border:1px solid var(--line2);background:#fff;color:var(--ink);font-size:13px}
+.tabs button.on{border-color:var(--navy);background:var(--navy);color:#fff;font-weight:700}
+.two{display:flex;gap:16px;align-items:flex-start}
+.two>.main{flex:1 1 0;min-width:0}
+.two>.side{flex:none;display:flex;flex-direction:column;gap:12px}
+.side.w300{width:300px}.side.w360{width:360px}.side.w380{width:380px}
+.paper{padding:36px 40px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+.paper .head{border:2px solid var(--ink);padding:14px 20px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.paper .head .exam{font-size:26pt;color:#404040;line-height:1.3}
+.paper .head .when{font-size:18px;font-weight:700}.paper .head .when span{font-weight:400;color:#404040}
+.paper .head .subj{font-size:16px}
+.paper .head .cnt{font-size:13px;display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center}
+.paper .head .cnt span{display:inline-flex;align-items:center;gap:6px}
+.paper .head .cnt i{width:12px;height:12px;border:1px solid #8A8A8A;display:inline-block}
+.paper .head .cnt em{font-style:normal;color:#B00020;font-weight:700}
+.paper .desk{width:300px;height:44px;margin:22px auto 18px;border:2px solid var(--ink);background:#F2F2F2;display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;letter-spacing:.6em;padding-left:.6em}
+.paper table.grid{width:100%;border-collapse:collapse;table-layout:fixed}
+.paper table.grid td{height:92px;text-align:center;vertical-align:middle;border:0;background:#fff}
+.paper table.grid td.seat{border:1px solid #333}
+.paper table.grid td .nm{font-size:15px;font-weight:700}
+.paper table.grid td .sb{font-size:12px;color:#222;margin-top:2px}
+.paper .foot{margin-top:10px;font-size:12px;color:var(--mute);text-align:right}
+.chk{display:flex;flex-direction:column;gap:8px;font-size:13px}
+.chk div{display:flex;gap:8px;align-items:flex-start}
+.chk i{width:18px;height:18px;border-radius:9px;color:#fff;font-size:11px;font-style:normal;display:inline-flex;align-items:center;justify-content:center;flex:none}
+.chk .ok i{background:#2E7D4F}.chk .warn i{background:#B7791F}.chk .err i{background:#B00020}.chk .info i{background:var(--mute)}
+.ctitle{font-size:14px;font-weight:700;margin-bottom:10px}
+.note{font-size:12px;color:var(--mute);text-align:center}
+.radio{display:flex;align-items:center;gap:12px;padding:12px 14px;border:1px solid var(--line2);border-radius:8px;cursor:pointer;margin-bottom:12px}
+.radio.on{border:2px solid var(--navy);background:var(--soft)}
+.radio input[type=radio]{width:18px;height:18px;margin:0}
+.radio .nm{width:150px;font-weight:500}.radio.on .nm{font-weight:700}
+.radio select{height:34px;font-size:13px;padding:0 8px}
+.radio .r{margin-left:auto;font-size:12px;color:var(--mute)}
+.sec{font-size:15px;font-weight:700;margin-bottom:12px}
+.mono{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:12px;background:var(--soft);border:1px solid var(--line);border-radius:6px;padding:10px 12px;word-break:break-all}
+.warnbox{background:#FFF8E6;border:1px solid #E8C97A;border-radius:8px;padding:14px 18px}
+.warnbox .t{font-size:13px;font-weight:700;color:#7A5300;margin-bottom:6px}
+.warnbox .b{font-size:13px;color:#3C4653;line-height:1.6}
+.warnbox a.lnk{display:inline-flex;align-items:center;height:32px;padding:0 12px;border:1px solid #B7791F;color:#7A5300;border-radius:6px;font-size:13px;text-decoration:none;background:#fff;margin-top:10px}
+.layoutbox{border:1px dashed var(--line2);border-radius:8px;padding:20px 24px 24px;display:flex;flex-direction:column;align-items:center;gap:18px;background:#FAFBFC;margin-top:16px}
+.layoutbox .desk{width:300px;height:44px;border:2px solid var(--ink);background:#F2F2F2;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;letter-spacing:.6em;padding-left:.6em}
+.cols{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:18px;width:100%;max-width:640px}
+.col{display:flex;flex-direction:column;align-items:center;gap:8px}
+.col label{font-size:13px;font-weight:700}
+.col input{width:64px;height:40px;text-align:center;font-size:18px;font-weight:700;border:1px solid var(--line2);border-radius:6px}
+.col .desks{display:flex;flex-direction:column;gap:5px}
+.col .desks i{display:block;width:60px;height:24px;border:1px solid var(--navy);background:#DCE7F5;border-radius:3px}
+.status{display:flex;align-items:center;gap:10px;font-size:14px;border-radius:6px;padding:8px 14px}
+.status.ok{background:#E8F3EC;border:1px solid #9FCBB0}.status.err{background:#FDECEC;border:1px solid #E5A3A3}
+.status i{width:18px;height:18px;border-radius:9px;color:#fff;font-size:11px;font-style:normal;display:inline-flex;align-items:center;justify-content:center}
+.status.ok i{background:#2E7D4F}.status.err i{background:#B00020}
+.actions{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:16px}
+.actions .btn{height:42px;min-width:120px;white-space:nowrap;font-size:15px}
+.lt{width:100%;font-size:12px;border-collapse:collapse}
+.lt th{background:var(--soft);text-align:center;padding:6px 8px;border-bottom:1px solid var(--line);font-weight:700}
+.lt td{text-align:center;padding:5px 8px;border-bottom:1px solid #EDF0F3;cursor:pointer;letter-spacing:.06em}
+.lt tr:hover td{background:var(--soft)}
+.lt tr.unset td{background:#FFF8E6;color:#7A5300;font-weight:700;letter-spacing:0}
+.lt tr.cur td{outline:2px solid var(--navy);outline-offset:-2px}
+.g2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.hidden{display:none !important}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);background:#1A1F27;color:#fff;padding:10px 18px;border-radius:8px;font-size:13px;opacity:0;transition:opacity .2s;pointer-events:none;z-index:9}
+.toast.show{opacity:.95}
+.loading{position:fixed;inset:0;background:rgba(255,255,255,.6);display:flex;align-items:center;justify-content:center;font-size:15px;color:var(--navy);font-weight:700;z-index:8}
+.empty{padding:60px 20px;text-align:center;color:var(--mute)}
+</style>
+</head>
+<body>
+
+<div class="hdr">
+  <div class="brand"><img src="logo.png" alt="전주솔내고등학교"><div class="ttl">시험 좌석 배치 프로그램</div></div>
+  <nav>
+    <a href="#preview" data-tab="preview" class="on">미리보기</a>
+    <a href="#download" data-tab="download">내려받기</a>
+    <a href="#layout" data-tab="layout">좌석 설정</a>
+  </nav>
+  <div class="src">자료: <span id="srcTitle"></span> · <span id="srcTime">읽는 중…</span><a href="#" id="reload">다시 읽기</a></div>
+</div>
+
+<!-- ===================== ① 미리보기 ===================== -->
+<div class="wrap" id="tab-preview">
+  <div class="card row">
+    <div class="fld"><label for="pv-exam">고사</label><select id="pv-exam"></select></div>
+    <div class="fld"><label for="pv-grade">학년</label><select id="pv-grade"></select></div>
+    <div class="fld"><label for="pv-cls">학급</label><select id="pv-cls"></select></div>
+    <button class="btn" id="pv-go">조회</button>
+    <div class="chip" id="pv-capchip" style="margin-left:auto"></div>
+  </div>
+  <div class="tabs" id="pv-periods"></div>
+  <div class="two" id="pv-body">
+    <div class="main card paper" id="pv-paper"><div class="empty">학년·학급을 선택하고 조회를 누르세요.</div></div>
+    <div class="side w300">
+      <div class="card"><div class="ctitle" id="pv-chk-title">점검 결과</div><div class="chk" id="pv-chk"></div></div>
+      <div class="card"><div class="ctitle" id="pv-info-title">이 고사의 교시</div><div id="pv-info" style="font-size:13px;color:#3C4653;line-height:1.7"></div></div>
+      <button class="btn lg" id="pv-dl" disabled>이 학급 HWPX 내려받기</button>
+      <div class="note">여러 학급을 한 번에 받으려면 상단 '내려받기' 메뉴</div>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ② 내려받기 ===================== -->
+<div class="wrap hidden" id="tab-download">
+  <div class="two">
+    <div class="main" style="display:flex;flex-direction:column;gap:16px">
+      <div class="card"><div class="sec">1. 고사 선택</div><select id="dl-exam"></select></div>
+      <div class="card"><div class="sec">2. 내려받을 범위</div>
+        <label class="radio on" data-scope="class"><input type="radio" name="scope" value="class" checked><span class="nm">학급</span>
+          <select id="dl-grade1"></select><select id="dl-cls1"></select><span class="r" id="dl-r1">담임용 · HWPX 1개</span></label>
+        <label class="radio" data-scope="grade"><input type="radio" name="scope" value="grade"><span class="nm">학년</span>
+          <select id="dl-grade2"></select><span id="dl-r2a" style="font-size:13px;color:#3C4653">1반 ~ 10반</span><span class="r" id="dl-r2">평가 담당자용 · 10학급</span></label>
+        <label class="radio" data-scope="all" style="margin-bottom:0"><input type="radio" name="scope" value="all"><span class="nm">모든 학급</span>
+          <span id="dl-r3a" style="font-size:13px;color:#3C4653"></span><span class="r" id="dl-r3">평가 담당자용</span></label>
+      </div>
+      <div class="card"><div class="sec">3. 파일 형식</div>
+        <label style="display:flex;align-items:center;gap:10px;cursor:pointer"><input type="checkbox" id="dl-merge" style="width:18px;height:18px;margin:0"><span>한 파일로 합치기</span><span style="font-size:12px;color:var(--mute)">(끄면 학급별 HWPX를 ZIP으로 묶음 · 켜면 전체 학급이 한 HWPX에 이어짐)</span></label>
+        <div style="font-size:12px;color:var(--mute);margin-top:10px">응시생이 없는 교시도 '미응시 ○명'으로 함께 출력됩니다. 담당 교사 확인용입니다.</div>
+      </div>
+    </div>
+    <div class="side w360">
+      <div class="card"><div class="ctitle">생성될 파일</div><div class="mono" id="dl-fname"></div><div id="dl-fdesc" style="font-size:13px;color:#3C4653;margin-top:10px;line-height:1.6"></div></div>
+      <div class="warnbox hidden" id="dl-warn"><div class="t" id="dl-warn-t"></div><div class="b" id="dl-warn-b"></div><a class="lnk" href="#layout" data-tab="layout">설정하러 가기</a></div>
+      <button class="btn big" id="dl-go">HWPX 내려받기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== ③ 좌석 설정 ===================== -->
+<div class="wrap hidden" id="tab-layout">
+  <div class="two">
+    <div class="main card" style="padding:18px 22px 22px">
+      <div class="row">
+        <div class="fld"><label for="ly-term">학년도 · 학기</label><select id="ly-term"></select></div>
+        <div class="fld"><label for="ly-grade">학년</label><select id="ly-grade"></select></div>
+        <div class="fld"><label for="ly-cls">학급</label><select id="ly-cls"></select></div>
+        <div class="chip" id="ly-count" style="margin-left:auto"></div>
+      </div>
+      <div class="layoutbox">
+        <div class="desk">교탁</div>
+        <div class="cols" id="ly-cols"></div>
+        <div class="status ok" id="ly-status"></div>
+      </div>
+      <div class="actions"><button class="btn" id="ly-save">저장</button></div>
+    </div>
+    <div class="side w380">
+      <div class="card">
+        <div style="font-size:17px;font-weight:700;margin-bottom:4px;text-align:center">설정 현황</div>
+        <div style="font-size:12px;color:var(--mute);margin-bottom:12px;text-align:center" id="ly-sum"></div>
+        <div class="g2" id="ly-tables"></div>
+        <div style="font-size:12px;color:var(--mute);margin-top:12px;line-height:1.6">표의 학급을 누르면 그 학급의 줄 구성을 바로 수정합니다.</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<div class="loading hidden" id="loading">자료를 읽는 중…</div>
+
+<script>
+(function () {
+  var C = SeatingCore, $ = function (id) { return document.getElementById(id); };
+  var S = { exams: [], exam: null, data: null, R: {}, slots: {}, layouts: {}, templateZip: null,
+            pv: { grade: null, cls: null, idx: 0, pages: null }, ly: { grade: null, cls: null } };
+  var DEFAULT_CAPS = [5, 5, 5, 5, 5];
+
+  /* ---------------- 공통 ---------------- */
+  function toast(msg, ms) { var t = $('toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(t._h); t._h = setTimeout(function () { t.classList.remove('show'); }, ms || 2500); }
+  function loading(on) { $('loading').classList.toggle('hidden', !on); }
+  function api(params) {
+    var q = Object.keys(params).map(function (k) { return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]); }).join('&');
+    return fetch(API_URL + '?' + q, { redirect: 'follow' }).then(function (r) { return r.json(); }).then(function (j) { if (!j.ok) throw new Error(j.error || 'API 오류'); return j; });
+  }
+  function opts(sel, items, value) {
+    sel.innerHTML = items.map(function (it) { return '<option value="' + it.v + '"' + (String(it.v) === String(value) ? ' selected' : '') + '>' + it.t + '</option>'; }).join('');
+  }
+  function fmtTime(iso) { var d = new Date(iso); if (isNaN(d)) return String(iso || ''); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0') + ' ' + String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0'); }
+  function capsStr(caps) { return caps.join(' · '); }
+  function sum(a) { return a.reduce(function (x, y) { return x + y; }, 0); }
+  function layoutOf(grade, cls) { return S.layouts[grade + '-' + cls] || null; }
+  function capsOf(grade, cls) { var l = layoutOf(grade, cls); return l ? l.caps.slice() : DEFAULT_CAPS.slice(); }
+  function grades() { return Object.keys(S.R).map(Number).filter(function (g) { return (S.slots[g] || []).length; }).sort(); }
+  function classes(g) { return Object.keys(S.R[g] || {}).map(Number).sort(function (a, b) { return a - b; }); }
+  function seatedCount(roster) { return C.rosterList(roster).filter(function (s) { return !s.deoham; }).length; }
+  function saveBlob(blob, name) { var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+
+  /* ---------------- 탭 ---------------- */
+  function showTab(name) {
+    ['preview', 'download', 'layout'].forEach(function (t) { $('tab-' + t).classList.toggle('hidden', t !== name); });
+    document.querySelectorAll('.hdr nav a').forEach(function (a) { a.classList.toggle('on', a.dataset.tab === name); });
+    if (name === 'download') renderDownload();
+    if (name === 'layout') renderLayout();
+  }
+  document.querySelectorAll('[data-tab]').forEach(function (a) { a.addEventListener('click', function (e) { e.preventDefault(); showTab(a.dataset.tab); }); });
+
+  /* ---------------- 자료 읽기 ---------------- */
+  function loadExams() {
+    loading(true); $('srcTitle').textContent = DATA_TITLE;
+    return api({ action: 'list' }).then(function (j) {
+      S.exams = j.exams;
+      if (!S.exams.length) throw new Error("'시간표_학년도_학기_고사명' 형식의 시트가 없습니다");
+      var items = S.exams.map(function (e) { return { v: e.id, t: C.examTitle(e) }; });
+      opts($('pv-exam'), items, S.exams[0].id); opts($('dl-exam'), items, S.exams[0].id);
+      var terms = [], seen = {};
+      S.exams.forEach(function (e) { var k = e.year + '-' + e.term; if (!seen[k]) { seen[k] = 1; terms.push({ v: e.id, t: e.year + '학년도 ' + e.term + '학기' }); } });
+      opts($('ly-term'), terms, S.exams[0].id);
+      return loadData(S.exams[0].id);
+    }).catch(function (err) { loading(false); $('srcTime').textContent = '오류'; alert('자료를 읽지 못했습니다.\n' + err.message + '\n\nindex.html의 API_URL과 앱스 스크립트 배포 상태를 확인하세요.'); });
+  }
+  function loadData(examId) {
+    loading(true);
+    return api({ action: 'data', exam: examId }).then(function (j) {
+      S.exam = j.exam; S.data = j;
+      S.R = C.buildRosters(j.students);
+      S.slots = {}; [1, 2, 3].forEach(function (g) { S.slots[g] = C.parseTimetable(j.timetable, g); });
+      S.layouts = {}; j.layouts.forEach(function (l) { S.layouts[l.grade + '-' + l.cls] = l; });
+      $('srcTime').textContent = fmtTime(j.generatedAt) + ' 기준';
+      ['pv-exam', 'dl-exam'].forEach(function (id) { $(id).value = examId; });
+      var t = S.exams.find(function (e) { return e.id === examId; }); if (t) { var same = S.exams.find(function (e) { return e.year === t.year && e.term === t.term; }); $('ly-term').value = same.id; }
+      fillGradeClass(); renderCapChip(); renderPreviewInfo();
+      S.pv.pages = null; $('pv-paper').innerHTML = '<div class="empty">학년·학급을 선택하고 조회를 누르세요.</div>'; $('pv-periods').innerHTML = ''; $('pv-chk').innerHTML = ''; $('pv-dl').disabled = true;
+      loading(false);
+      if (!$('tab-download').classList.contains('hidden')) renderDownload();
+      if (!$('tab-layout').classList.contains('hidden')) renderLayout();
+    }).catch(function (err) { loading(false); alert('고사 자료를 읽지 못했습니다.\n' + err.message); });
+  }
+  function fillGradeClass() {
+    var gs = grades();
+    var gi = gs.map(function (g) { return { v: g, t: g + '학년' }; });
+    ['pv-grade', 'dl-grade1', 'dl-grade2', 'ly-grade'].forEach(function (id) { var cur = Number($(id).value) || gs[0]; opts($(id), gi, gs.indexOf(cur) >= 0 ? cur : gs[0]); });
+    syncCls('pv-grade', 'pv-cls'); syncCls('dl-grade1', 'dl-cls1'); syncCls('ly-grade', 'ly-cls');
+  }
+  function syncCls(gid, cid) {
+    var g = Number($(gid).value), cur = Number($(cid).value);
+    var cs = classes(g).map(function (c) { return { v: c, t: c + '반' }; });
+    opts($(cid), cs, cs.some(function (x) { return x.v === cur; }) ? cur : (cs[0] && cs[0].v));
+  }
+  $('pv-grade').addEventListener('change', function () { syncCls('pv-grade', 'pv-cls'); renderCapChip(); renderPreviewInfo(); });
+  $('pv-cls').addEventListener('change', function () { renderCapChip(); });
+  $('dl-grade1').addEventListener('change', function () { syncCls('dl-grade1', 'dl-cls1'); renderDownload(); });
+  $('ly-grade').addEventListener('change', function () { syncCls('ly-grade', 'ly-cls'); renderLayout(); });
+  $('ly-cls').addEventListener('change', renderLayout);
+  $('pv-exam').addEventListener('change', function () { loadData(this.value); });
+  $('dl-exam').addEventListener('change', function () { loadData(this.value); });
+  $('ly-term').addEventListener('change', function () { loadData(this.value); });
+  $('reload').addEventListener('click', function (e) { e.preventDefault(); if (S.exam) loadData(S.exam.id); });
+
+  /* ---------------- ① 미리보기 ---------------- */
+  function renderCapChip() {
+    var g = Number($('pv-grade').value), c = Number($('pv-cls').value), l = layoutOf(g, c), chip = $('pv-capchip');
+    if (l) { chip.className = 'chip'; chip.innerHTML = '<span style="color:var(--mute)">이 학급 줄 구성</span><b class="caps">' + capsStr(l.caps) + '</b><span style="color:var(--mute)">(좌석 ' + sum(l.caps) + '석 · ' + fmtTime(l.updated).slice(0, 10) + ' 저장)</span><a href="#layout" data-tab="layout" data-goto="1">설정 변경</a>'; }
+    else { chip.className = 'chip warn'; chip.innerHTML = '<span>설정 전 — 기본값</span><b class="caps">' + capsStr(DEFAULT_CAPS) + '</b><span>으로 표시 중</span><a href="#layout" data-tab="layout" data-goto="1">좌석 설정으로</a>'; }
+    chip.querySelector('a').addEventListener('click', function (e) { e.preventDefault(); gotoLayout(g, c); });
+  }
+  function renderPreviewInfo() {
+    var g = Number($('pv-grade').value), sl = S.slots[g] || [], byDate = [], map = {};
+    sl.forEach(function (s) { if (!map[s.date]) { map[s.date] = []; byDate.push(s.date); } map[s.date].push(s.period); });
+    $('pv-info-title').textContent = '이 고사의 ' + g + '학년 시험 교시';
+    $('pv-info').innerHTML = '시험 교시 ' + sl.length + '개 · ' + byDate.length + '일<br>' + byDate.map(function (d) { return d + ' ' + map[d].join('·') + '교시'; }).join('<br>');
+  }
+  $('pv-go').addEventListener('click', function () {
+    var g = Number($('pv-grade').value), c = Number($('pv-cls').value), roster = S.R[g] && S.R[g][c];
+    if (!roster) { toast('해당 학급 자료가 없습니다'); return; }
+    var caps = capsOf(g, c), sl = S.slots[g];
+    S.pv.grade = g; S.pv.cls = c; S.pv.idx = 0;
+    S.pv.pages = sl.map(function (slot) { return { slot: slot, grade: g, cls: c, res: C.arrange(roster, slot, caps) }; });
+    $('pv-periods').innerHTML = sl.map(function (s, i) { return '<button data-i="' + i + '"' + (i === 0 ? ' class="on"' : '') + '>' + s.date + ' ' + s.period + '교시</button>'; }).join('');
+    $('pv-periods').querySelectorAll('button').forEach(function (b) { b.addEventListener('click', function () { S.pv.idx = Number(b.dataset.i); $('pv-periods').querySelectorAll('button').forEach(function (x) { x.classList.toggle('on', x === b); }); renderPaper(); }); });
+    renderPaper(); renderChecks(roster, sl, caps); renderCapChip();
+    $('pv-dl').disabled = false;
+  });
+  function renderPaper() {
+    var pg = S.pv.pages[S.pv.idx], r = pg.res, s = pg.slot, h = [];
+    h.push('<div class="head"><div class="exam">' + C.examTitle(S.exam) + ' 자리배치표</div>');
+    h.push('<div class="when">' + s.date + ' ' + s.period + '교시 <span>(' + s.time + ')</span> &nbsp;&nbsp;&nbsp;&nbsp; ' + pg.grade + '학년 ' + pg.cls + '반</div>');
+    h.push('<div class="subj">시험과목 : <b>' + s.subjects.map(function (x) { return s.codes[x] ? x + '(' + s.codes[x] + ')' : x; }).join(' / ') + '</b></div>');
+    h.push('<div class="cnt">' + r.groups.map(function (g) { return '<span><i style="background:' + g.color + '"></i>' + g.subject + ' <b>' + g.total + '명</b>' + (g.deoham.length ? '<em>(' + g.deoham.map(function (d) { return d.no + '번 ' + d.name + ' 더함반'; }).join(', ') + ')</em>' : '') + '</span>'; }).join('') +
+           '<span><i style="background:' + C.COLOR_NONE + '"></i>미응시 <b>' + (r.nNone ? r.nNone + '명' : '없음') + '</b></span></div></div>');
+    h.push('<div class="desk">교탁</div><table class="grid"><tbody>');
+    for (var i = 0; i < r.rows; i++) {
+      h.push('<tr>');
+      for (var j = 0; j < r.cols; j++) {
+        var x = r.grid[i][j];
+        h.push(!x || x === 'X' ? '<td></td>' : '<td class="seat" style="background:' + x.color + '"><div class="nm">' + x.no + '. ' + x.name + '</div><div class="sb">' + x.subject + '</div></td>');
+      }
+      h.push('</tr>');
+    }
+    h.push('</tbody></table><div class="foot">착석 ' + r.nSeated + '명 / 좌석 ' + r.capacity + '석' + (r.overflow ? ' — <b style="color:#B00020">' + r.overflow + '명 좌석 부족</b>' : '') + '</div>');
+    $('pv-paper').innerHTML = h.join('');
+  }
+  function renderChecks(roster, sl, caps) {
+    var g = S.pv.grade, msgs = C.checkClass(roster, sl, caps), bad = C.checkSubjects(sl, S.R[g]);
+    msgs.unshift(bad.length ? { level: 'err', text: '시간표 과목명이 기초 자료에 없음: ' + bad.join(', ') + ' — 시트의 과목명을 확인하세요' } : { level: 'ok', text: '시간표 과목명 ' + sl.reduce(function (n, s) { return n + s.subjects.length; }, 0) + '개 모두 기초 자료와 일치' });
+    $('pv-chk-title').textContent = '점검 결과 — ' + g + '학년 ' + S.pv.cls + '반';
+    $('pv-chk').innerHTML = msgs.map(function (m) { return '<div class="' + m.level + '"><i>' + ({ ok: '✓', warn: '!', err: '!', info: 'i' })[m.level] + '</i><span>' + m.text + '</span></div>'; }).join('');
+  }
+  $('pv-dl').addEventListener('click', function () { if (S.pv.pages) downloadClasses([{ grade: S.pv.grade, cls: S.pv.cls }], false); });
+
+  /* ---------------- ② 내려받기 ---------------- */
+  function scope() { return document.querySelector('input[name=scope]:checked').value; }
+  document.querySelectorAll('input[name=scope]').forEach(function (r) { r.addEventListener('change', function () { document.querySelectorAll('.radio').forEach(function (l) { l.classList.toggle('on', l.dataset.scope === scope()); }); renderDownload(); }); });
+  ['dl-cls1', 'dl-grade2', 'dl-merge'].forEach(function (id) { $(id).addEventListener('change', renderDownload); });
+  function targets() {
+    var sc = scope(), list = [];
+    if (sc === 'class') list.push({ grade: Number($('dl-grade1').value), cls: Number($('dl-cls1').value) });
+    else if (sc === 'grade') { var g = Number($('dl-grade2').value); classes(g).forEach(function (c) { list.push({ grade: g, cls: c }); }); }
+    else grades().forEach(function (g) { classes(g).forEach(function (c) { list.push({ grade: g, cls: c }); }); });
+    return list;
+  }
+  function renderDownload() {
+    if (!S.exam) return;
+    var gs = grades(), sc = scope(), merge = $('dl-merge').checked, list = targets(), stem = C.fileStem(S.exam);
+    var g1 = Number($('dl-grade1').value), g2 = Number($('dl-grade2').value);
+    var pages1 = (S.slots[g1] || []).length, cs2 = classes(g2);
+    $('dl-r1').textContent = '담임용 · HWPX 1개 (' + pages1 + '쪽)';
+    $('dl-r2a').textContent = cs2.length ? cs2[0] + '반 ~ ' + cs2[cs2.length - 1] + '반' : '학급 없음';
+    $('dl-r2').textContent = '평가 담당자용 · ' + cs2.length + '학급';
+    $('dl-r3a').textContent = gs.map(function (g) { return g + '학년 ' + classes(g).length + '학급'; }).join(' + ');
+    $('dl-r3').textContent = '평가 담당자용 · ' + list.length + '학급';
+    if (!list.length) { $('dl-fname').textContent = '-'; $('dl-fdesc').textContent = '내려받을 학급이 없습니다'; $('dl-warn').classList.add('hidden'); return; }
+    var name, desc, pages = list.reduce(function (n, t) { return n + (S.slots[t.grade] || []).length; }, 0);
+    if (sc === 'class') { name = stem + '_' + list[0].grade + '학년' + list[0].cls + '반.hwpx'; desc = 'HWPX 1개 · ' + pages + '쪽'; }
+    else {
+      var tag = sc === 'grade' ? g2 + '학년_전체' : '전체학급';
+      name = stem + '_' + tag + (merge ? '.hwpx' : '.zip');
+      desc = merge ? 'HWPX 1개 · ' + list.length + '학급 이어서 총 ' + pages + '쪽' : 'HWPX ' + list.length + '개 · 총 ' + pages + '쪽<br>예) ' + stem + '_' + list[0].grade + '학년' + list[0].cls + '반.hwpx';
+    }
+    $('dl-fname').textContent = name; $('dl-fdesc').innerHTML = desc;
+    var unset = list.filter(function (t) { return !layoutOf(t.grade, t.cls); });
+    $('dl-warn').classList.toggle('hidden', !unset.length);
+    if (unset.length) {
+      $('dl-warn-t').textContent = '줄 구성이 설정되지 않은 학급 ' + unset.length + '개';
+      $('dl-warn-b').innerHTML = unset.map(function (t) { return t.grade + '학년 ' + t.cls + '반'; }).join(', ') + '<br>— 기본값 ' + capsStr(DEFAULT_CAPS) + '로 만들어집니다.';
+    }
+  }
+  $('dl-go').addEventListener('click', function () { downloadClasses(targets(), $('dl-merge').checked, scope()); });
+
+  function getTemplate() {
+    if (S.templateZip) return Promise.resolve(S.templateZip);
+    return fetch('template.hwpx').then(function (r) { if (!r.ok) throw new Error('template.hwpx를 찾을 수 없습니다'); return r.arrayBuffer(); })
+      .then(function (b) { return JSZip.loadAsync(b); }).then(function (z) { S.templateZip = z; return z; });
+  }
+  function pagesFor(t) {
+    var roster = S.R[t.grade][t.cls], caps = capsOf(t.grade, t.cls);
+    return (S.slots[t.grade] || []).map(function (slot) { return { slot: slot, grade: t.grade, cls: t.cls, res: C.arrange(roster, slot, caps) }; });
+  }
+  function downloadClasses(list, merge, sc) {
+    if (!list.length) { toast('내려받을 학급이 없습니다'); return; }
+    var over = list.filter(function (t) { return seatedCount(S.R[t.grade][t.cls]) > sum(capsOf(t.grade, t.cls)); });
+    if (over.length && !confirm('좌석이 부족한 학급이 있습니다: ' + over.map(function (t) { return t.grade + '학년 ' + t.cls + '반'; }).join(', ') + '\n좌석 설정을 먼저 고치는 것이 좋습니다. 그래도 계속할까요?')) return;
+    var stem = C.fileStem(S.exam), title = C.examTitle(S.exam);
+    loading(true); $('loading').textContent = 'HWPX 파일을 만드는 중…';
+    getTemplate().then(function (tz) {
+      if (list.length === 1) {
+        var t = list[0];
+        return C.buildHwpx(tz, pagesFor(t), title, JSZip, 'blob').then(function (blob) { saveBlob(blob, stem + '_' + t.grade + '학년' + t.cls + '반.hwpx'); });
+      }
+      var tag = sc === 'all' ? '전체학급' : list[0].grade + '학년_전체';
+      if (merge) {
+        var all = []; list.forEach(function (t) { all = all.concat(pagesFor(t)); });
+        return C.buildHwpx(tz, all, title, JSZip, 'blob').then(function (blob) { saveBlob(blob, stem + '_' + tag + '.hwpx'); });
+      }
+      var zip = new JSZip(), chain = Promise.resolve();
+      list.forEach(function (t) { chain = chain.then(function () { return C.buildHwpx(tz, pagesFor(t), title, JSZip, 'uint8array').then(function (b) { zip.file(stem + '_' + t.grade + '학년' + t.cls + '반.hwpx', b); }); }); });
+      return chain.then(function () { return zip.generateAsync({ type: 'blob' }); }).then(function (blob) { saveBlob(blob, stem + '_' + tag + '.zip'); });
+    }).then(function () { loading(false); toast('내려받기가 시작되었습니다'); })
+      .catch(function (err) { loading(false); alert('파일 생성 실패: ' + err.message); })
+      .then(function () { $('loading').textContent = '자료를 읽는 중…'; });
+  }
+
+  /* ---------------- ③ 좌석 설정 ---------------- */
+  function gotoLayout(g, c) { showTab('layout'); $('ly-grade').value = g; syncCls('ly-grade', 'ly-cls'); $('ly-cls').value = c; renderLayout(); }
+  function renderLayout() {
+    if (!S.exam) return;
+    var g = Number($('ly-grade').value), c = Number($('ly-cls').value), roster = S.R[g] && S.R[g][c];
+    S.ly.grade = g; S.ly.cls = c;
+    var total = roster ? C.rosterList(roster).length : 0, dh = roster ? total - seatedCount(roster) : 0, seated = total - dh;
+    $('ly-count').innerHTML = '학급 인원 <b>&nbsp;' + total + '명&nbsp;</b>' + (dh ? ' · 더함 ' + dh + '명 제외 → 착석 <b>&nbsp;' + seated + '명</b>' : ' · 착석 <b>&nbsp;' + seated + '명</b>');
+    var l = layoutOf(g, c), caps = l ? l.caps.slice() : C.defaultCaps(seated);
+    $('ly-cols').innerHTML = caps.map(function (n, i) { return '<div class="col"><label for="ly-c' + i + '">줄' + (i + 1) + '</label><input id="ly-c' + i + '" type="number" min="0" max="10" value="' + n + '"><div class="desks" id="ly-d' + i + '"></div></div>'; }).join('');
+    $('ly-cols').querySelectorAll('input').forEach(function (inp) { inp.addEventListener('input', updateLayoutView); });
+    updateLayoutView(); renderLayoutTables();
+  }
+  function readCaps() { var caps = []; for (var i = 0; i < 5; i++) { var v = Math.max(0, Math.min(10, Math.floor(Number($('ly-c' + i).value) || 0))); caps.push(v); } return caps; }
+  function updateLayoutView() {
+    var caps = readCaps(), roster = (S.R[S.ly.grade] || {})[S.ly.cls], seated = roster ? seatedCount(roster) : 0, cap = sum(caps);
+    caps.forEach(function (n, i) { var d = $('ly-d' + i), h = ''; for (var k = 0; k < n; k++) h += '<i></i>'; d.innerHTML = h; });
+    var st = $('ly-status');
+    if (cap >= seated) { st.className = 'status ok'; st.innerHTML = '<i>✓</i><span>좌석 <b>&nbsp;' + cap + '석&nbsp;</b> ≥ 착석 ' + seated + '명' + (cap > seated ? ' — 남는 좌석 ' + (cap - seated) + '석' : '') + '</span>'; }
+    else { st.className = 'status err'; st.innerHTML = '<i>!</i><span>좌석 <b>&nbsp;' + cap + '석&nbsp;</b> &lt; 착석 ' + seated + '명 — ' + (seated - cap) + '석 부족합니다</span>'; }
+  }
+  $('ly-save').addEventListener('click', function () {
+    var caps = readCaps(), g = S.ly.grade, c = S.ly.cls, btn = $('ly-save');
+    btn.disabled = true; btn.textContent = '저장 중…';
+    api({ action: 'saveLayout', exam: S.exam.id, grade: g, cls: c, caps: caps.join(',') }).then(function (j) {
+      S.layouts = {}; j.layouts.forEach(function (l) { S.layouts[l.grade + '-' + l.cls] = l; });
+      toast(g + '학년 ' + c + '반 줄 구성 저장: ' + capsStr(caps)); renderLayoutTables(); renderCapChip();
+      if (S.pv.pages && S.pv.grade === g && S.pv.cls === c) $('pv-go').click();
+    }).catch(function (err) { alert('저장 실패: ' + err.message); }).then(function () { btn.disabled = false; btn.textContent = '저장'; });
+  });
+  function renderLayoutTables() {
+    var gs = grades(), saved = 0, totalC = 0, h = '';
+    gs.forEach(function (g) {
+      h += '<table class="lt"><thead><tr><th>' + g + '학년</th><th>줄 구성</th></tr></thead><tbody>';
+      classes(g).forEach(function (c) {
+        var l = layoutOf(g, c); totalC++; if (l) saved++;
+        var cur = (g === S.ly.grade && c === S.ly.cls) ? ' cur' : '';
+        h += '<tr class="' + (l ? '' : 'unset') + cur + '" data-g="' + g + '" data-c="' + c + '"><td>' + c + '반</td><td>' + (l ? capsStr(l.caps) : '미설정') + '</td></tr>';
+      });
+      h += '</tbody></table>';
+    });
+    $('ly-tables').innerHTML = h;
+    $('ly-sum').textContent = saved + ' / ' + totalC + ' 학급 저장됨 · 미설정 학급은 기본값 ' + capsStr(DEFAULT_CAPS);
+    $('ly-tables').querySelectorAll('tr[data-g]').forEach(function (tr) { tr.addEventListener('click', function () { gotoLayout(Number(tr.dataset.g), Number(tr.dataset.c)); }); });
+  }
+
+  /* ---------------- 시작 ---------------- */
+  var hash = (location.hash || '#preview').slice(1);
+  if (['preview', 'download', 'layout'].indexOf(hash) >= 0) showTab(hash);
+  loadExams();
+})();
+</script>
+</body>
+</html>
